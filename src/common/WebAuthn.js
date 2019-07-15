@@ -1,10 +1,11 @@
-
+import CBOR from 'cbor-sync';
 ///////// START UTIL FUNCTIONS /////////
 // easy way to go from string to ByteArray
 const enc = new TextEncoder();
 
 // another function to go from string to ByteArray, but we first encode the
 // string as base64 - note the use of the atob() function
+// eslint-disable-next-line
 function strToBin(str) {
     return Uint8Array.from(atob(str), c => c.charCodeAt(0));
 }
@@ -36,11 +37,6 @@ const createCreds = async function(userName) {
             name: userName,
             displayName: userName
         },
-        authenticatorSelection: {
-            authenticatorAttachment: "platform",
-            userVerification: "preferred" ,
-        },
-        attestation: 'direct',
         pubKeyCredParams: [
             {
                 type: "public-key", alg: -7 // "ES256" IANA COSE Algorithms registry
@@ -63,13 +59,37 @@ const createCreds = async function(userName) {
     });
 
     console.log(res);
+    console.log(res.response.attestationObject);
+    // note: a CBOR decoder library is needed here.
+    // const decodedAttestationObj = CBOR.decode(res.response.attestationObject);
+
+
+    const decodedAttestationObj = CBOR.decode(res.response.attestationObject);
+
+    console.log(decodedAttestationObj);
+    const {authData} = decodedAttestationObj;
+    const dataView = new DataView(
+        new ArrayBuffer(2));
+    const idLenBytes = authData.slice(53, 55);
+    idLenBytes.forEach(
+        (value, index) => dataView.setUint8(
+            index, value));
+    const credentialIdLength = dataView.getUint16();
+
+    // get the credential ID
+    const credentialId = authData.slice(
+        55, credentialIdLength);
+
     alert("registed successful")
 
     // Below two lines store the most important info - the ID representing the created credentials
     // Typically they are sent via POST to your server, not stored locally - here for DEMO purposes only
-    localStorage.setItem(userName, res.rawId);
-    localStorage.setItem('id', binToStr(res.id));
-        
+    const userIds = {
+        rawId: res.rawId,
+        id: res.id,
+        cId: credentialId,
+    }
+    localStorage.setItem(userName, userIds);
 }
 
 const validateCreds = async function(userName){
@@ -77,31 +97,29 @@ const validateCreds = async function(userName){
     ////// START server generated info //////
     // Usually the below publicKey object is constructed on your server
     // here for DEMO purposes only
-    const rawId = localStorage.getItem(userName);
-    if (rawId == null) {
+    const ids = localStorage.getItem(userName);
+    if (ids == null) {
         alert("Invalid user name");
         return;
     }
+    console.log(ids);
     const AUTH_CHALLENGE = 'ThisIsTheOnlyKeyToVerifyYouAreAtTheRightPlace'
     const publicKey = {
-        // your domain
-        rpId: "y33.ch",
         // random, cryptographically secure, at least 16 bytes
-        challenge: enc.encode(AUTH_CHALLENGE),
+        challenge: Uint8Array.from(AUTH_CHALLENGE, c => c.charCodeAt(0)),
         allowCredentials: [{
-          id: rawId,
-          type: 'public-key'
+          id: Uint8Array.from(ids.cId, c => c.charCodeAt(0)),
+          type: 'public-key',
         }],
-        authenticatorSelection: {
-            authenticatorAttachment: "platform",
-        },
+        userVerification: "preferred",
     };
     ////// END server generated info //////
+    console.log(publicKey.allowCredentials);
 
     // browser receives the publicKey object and passes it to WebAuthn "get" API
     const res = await navigator.credentials.get({
         publicKey: publicKey
-    })
+    });
 
     
     console.log(res);
@@ -118,6 +136,7 @@ const validateCreds = async function(userName){
     // here for DEMO purposes only
     const dataFromClient = JSON.parse(atob(extractedData.clientDataJSON));
     const retrievedChallenge = atob(dataFromClient.challenge);
+    // eslint-disable-next-line
     const retrievedOrigin = dataFromClient.origin;
 
     // At MINIMUM, your auth checks should be:

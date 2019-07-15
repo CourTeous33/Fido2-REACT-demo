@@ -13,7 +13,6 @@ class WelcomePage extends Component {
 
     setUserName = (event) => {
         this.setState({ userName: event.target.value });
-        console.log(this.state.userName);
     };
 
 
