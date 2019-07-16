@@ -5,16 +5,26 @@ import { createCreds, validateCreds } from '../common/WebAuthn'
 
 class WelcomePage extends Component {
     constructor () {
-        super()
+        super();
         this.state = {
-          userName: "foo"
-        }
+          userName: "foo",
+          userCIds: {"foo": null},
+        };
     }
+
+    // addUserCId = (user_name, CId) => {
+    //     const oldMap = this.state.userCIds;
+    //     this.setState({ userCIds: newMap });
+    //     console.log(this.state.userCIds);
+    // };
+
+    // getUserCId = (userName) => {
+    //     return this.state.userCIds[userName];
+    // }
 
     setUserName = (event) => {
         this.setState({ userName: event.target.value });
     };
-
 
     render () {
         return (

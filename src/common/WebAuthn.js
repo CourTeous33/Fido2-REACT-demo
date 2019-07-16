@@ -62,12 +62,12 @@ const createCreds = async function(userName) {
     console.log(res.response.attestationObject);
     // note: a CBOR decoder library is needed here.
     // const decodedAttestationObj = CBOR.decode(res.response.attestationObject);
+    const encodedAttObj = new Uint8Array(res.response.attestationObject);
+    console.log(encodedAttObj);
+    const decodedAttestationObj = CBOR.decode(encodedAttObj, 'base64');
 
-
-    const decodedAttestationObj = CBOR.decode(res.response.attestationObject);
-
-    console.log(decodedAttestationObj);
     const {authData} = decodedAttestationObj;
+    console.log(authData);
     const dataView = new DataView(
         new ArrayBuffer(2));
     const idLenBytes = authData.slice(53, 55);
@@ -75,21 +75,29 @@ const createCreds = async function(userName) {
         (value, index) => dataView.setUint8(
             index, value));
     const credentialIdLength = dataView.getUint16();
-
+    console.log(credentialIdLength)
     // get the credential ID
     const credentialId = authData.slice(
-        55, credentialIdLength);
-
+        55, 55 + credentialIdLength);
+    
+    console.log(credentialId);
     alert("registed successful")
+    // const encodedCId = new TextDecoder("utf-8").decode(credentialId);
+    const arr = Array.from // if available
+        ? Array.from(credentialId) // use Array#from
+        : credentialId.map(v => v); // otherwise map()
+    // now stringify
+    const encodedCId = JSON.stringify(arr);
+    console.log(encodedCId);
 
     // Below two lines store the most important info - the ID representing the created credentials
     // Typically they are sent via POST to your server, not stored locally - here for DEMO purposes only
-    const userIds = {
-        rawId: res.rawId,
-        id: res.id,
-        cId: credentialId,
-    }
-    localStorage.setItem(userName, userIds);
+    // const userIds = {
+    //     rawId: res.rawId,
+    //     id: res.id,
+    //     cId: credentialId,
+    // }
+    localStorage.setItem(userName, encodedCId);
 }
 
 const validateCreds = async function(userName){
@@ -97,18 +105,21 @@ const validateCreds = async function(userName){
     ////// START server generated info //////
     // Usually the below publicKey object is constructed on your server
     // here for DEMO purposes only
-    const ids = localStorage.getItem(userName);
-    if (ids == null) {
+    const encodedCId = localStorage.getItem(userName);
+    const cId = new Uint8Array(JSON.parse(encodedCId));
+    if (cId == null) {
         alert("Invalid user name");
         return;
     }
-    console.log(ids);
+    console.log(encodedCId);
+    // const cId = new TextEncoder("utf-8").encode(encodedCId);
+    console.log(cId);
     const AUTH_CHALLENGE = 'ThisIsTheOnlyKeyToVerifyYouAreAtTheRightPlace'
     const publicKey = {
         // random, cryptographically secure, at least 16 bytes
         challenge: Uint8Array.from(AUTH_CHALLENGE, c => c.charCodeAt(0)),
         allowCredentials: [{
-          id: Uint8Array.from(ids.cId, c => c.charCodeAt(0)),
+          id: cId.buffer,
           type: 'public-key',
         }],
         userVerification: "preferred",
