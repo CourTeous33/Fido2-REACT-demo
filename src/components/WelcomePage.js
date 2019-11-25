@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import Button from '@material-ui/core/Button';
 import Input from '@material-ui/core/Input';
 import { createCreds, validateCreds } from '../common/WebAuthn'
+import GoogleSignin from '../common/GoogleSignin';
 
 class WelcomePage extends Component {
     constructor () {
@@ -39,6 +40,7 @@ class WelcomePage extends Component {
                 onClick={() => validateCreds(this.state.userName)}>
                     Log in
                 </Button>
+                <GoogleSignin />
             </React.Fragment>
         );
     }
